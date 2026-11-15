@@ -226,7 +226,7 @@ export async function sendAssistantPrompt(
   try {
     const payload = await apiRequest<AssistantApiPayload>('/api/assistant/chat', {
       method: 'POST',
-      timeoutMs: 45000,
+      timeoutMs: 60000,
       clearSessionOn401: false,
       body: {
         prompt: cleanedPrompt,

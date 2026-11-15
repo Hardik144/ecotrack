@@ -52,7 +52,7 @@ const MIME_BY_EXT = {
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, content-type, accept, x-client-info, apikey',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
 };
 
@@ -1316,11 +1316,16 @@ export function createBackendApp(config) {
         });
         const webRes = await assistantHandler(webReq);
         const resText = await webRes.text();
-        const headerObj = { ...CORS_HEADERS };
+        const resHeaders = {
+          ...CORS_HEADERS,
+          'Content-Type': 'application/json; charset=utf-8',
+        };
         webRes.headers.forEach((value, key) => {
-          headerObj[key] = value;
+          if (!key.toLowerCase().startsWith('access-control-')) {
+            resHeaders[key] = value;
+          }
         });
-        res.writeHead(webRes.status, headerObj);
+        res.writeHead(webRes.status, resHeaders);
         res.end(resText);
         return;
       }
