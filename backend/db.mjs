@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -277,12 +278,28 @@ export function computeLevelTitle(points) {
 }
 
 export function createDatabase(dbPath) {
-  if (dbPath && dbPath !== ':memory:') {
-    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  let resolvedPath = dbPath;
+  if (resolvedPath && resolvedPath !== ':memory:') {
+    try {
+      fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+    } catch (err) {
+      console.warn(
+        `[EcoTrack DB] Warning: Cannot create directory ${path.dirname(resolvedPath)} (${err.message}). Falling back to backend/data/...`
+      );
+      const fallbackDir = path.resolve(process.cwd(), 'backend', 'data');
+      try {
+        fs.mkdirSync(fallbackDir, { recursive: true });
+        resolvedPath = path.join(fallbackDir, 'ecotrack.db');
+      } catch {
+        const tmpDir = path.join(os.tmpdir(), 'ecotrack');
+        fs.mkdirSync(tmpDir, { recursive: true });
+        resolvedPath = path.join(tmpDir, 'ecotrack.db');
+      }
+    }
   }
 
-  const db = new DatabaseSync(dbPath || ':memory:');
-  if (dbPath && dbPath !== ':memory:') {
+  const db = new DatabaseSync(resolvedPath || ':memory:');
+  if (resolvedPath && resolvedPath !== ':memory:') {
     db.exec('PRAGMA journal_mode = WAL;');
   }
   db.exec('PRAGMA foreign_keys = ON;');

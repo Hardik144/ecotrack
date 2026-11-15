@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import {
   extractBearerToken,
@@ -263,7 +264,18 @@ function removeStoredAvatarFile(uploadsDir, rawAvatarUrl) {
 
 export function createBackendApp(config) {
   const db = createDatabase(config.dbPath);
-  const uploadsRoot = path.resolve(config.uploadsDir);
+  let uploadsRoot = path.resolve(config.uploadsDir);
+  try {
+    fs.mkdirSync(uploadsRoot, { recursive: true });
+  } catch {
+    uploadsRoot = path.resolve(process.cwd(), 'backend', 'uploads', 'avatars');
+    try {
+      fs.mkdirSync(uploadsRoot, { recursive: true });
+    } catch {
+      uploadsRoot = path.resolve(os.tmpdir(), 'ecotrack', 'uploads', 'avatars');
+      fs.mkdirSync(uploadsRoot, { recursive: true });
+    }
+  }
 
   const assistantHandler = createNodeAssistantHandler({
     db,

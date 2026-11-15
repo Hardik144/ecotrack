@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -57,9 +58,19 @@ export function resolveJwtSecret(dbPath, explicitSecret) {
     return crypto.randomBytes(32).toString('hex');
   }
 
-  const dataDir = path.dirname(dbPath);
+  let dataDir = path.dirname(dbPath);
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+  } catch {
+    dataDir = path.join(REPO_ROOT, 'backend', 'data');
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+    } catch {
+      dataDir = os.tmpdir();
+    }
+  }
+
   const secretPath = path.join(dataDir, '.jwt-secret');
-  fs.mkdirSync(dataDir, { recursive: true });
 
   if (fs.existsSync(secretPath)) {
     const persisted = fs.readFileSync(secretPath, 'utf8').trim();
