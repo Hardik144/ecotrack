@@ -128,6 +128,7 @@ async function callGeminiInteractionsRest(apiKey, params) {
       parsed?.error?.message ||
       parsed?.message ||
       `Gemini API error (${response.status})`;
+    console.error('[Gemini API Error]:', errMsg, JSON.stringify(parsed));
     throw new Error(errMsg);
   }
 

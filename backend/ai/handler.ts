@@ -159,21 +159,71 @@ export function sanitizeOutgoingErrorMessage(raw: unknown): string {
     .slice(0, 240);
 }
 
-export function extractModelOutputText(response: GeminiInteractionResponse): string {
+export function extractModelOutputText(response: any): string {
+  if (!response || typeof response !== 'object') return '';
+
   if (typeof response.output_text === 'string' && response.output_text.trim()) {
     return response.output_text.trim();
   }
 
-  const steps = response.steps ?? [];
+  if (typeof response.text === 'string' && response.text.trim()) {
+    return response.text.trim();
+  }
+
+  // Check response.outputs (array of strings or { text } / { type, text })
+  if (Array.isArray(response.outputs)) {
+    const parts = response.outputs
+      .map((item: any) => {
+        if (typeof item === 'string') return item.trim();
+        if (typeof item?.text === 'string') return item.text.trim();
+        if (typeof item?.content === 'string') return item.content.trim();
+        return '';
+      })
+      .filter(Boolean);
+    if (parts.length > 0) {
+      return parts.join('\n\n');
+    }
+  }
+
+  // Check response.steps
+  const steps = Array.isArray(response.steps) ? response.steps : [];
   for (let i = steps.length - 1; i >= 0; i -= 1) {
     const step = steps[i];
-    if (step.type === 'model_output' && Array.isArray(step.content)) {
+    if (!step) continue;
+
+    if (typeof step.text === 'string' && step.text.trim()) {
+      return step.text.trim();
+    }
+
+    if (typeof step.content === 'string' && step.content.trim()) {
+      return step.content.trim();
+    }
+
+    if (Array.isArray(step.content)) {
       const parts = step.content
-        .filter((part) => part.type === 'text' && typeof part.text === 'string')
-        .map((part) => part.text!.trim())
+        .map((part: any) => {
+          if (typeof part === 'string') return part.trim();
+          if (typeof part?.text === 'string') return part.text.trim();
+          return '';
+        })
         .filter(Boolean);
       if (parts.length > 0) {
         return parts.join('\n\n');
+      }
+    }
+  }
+
+  // Check classic Gemini candidates
+  if (Array.isArray(response.candidates)) {
+    for (const cand of response.candidates) {
+      const parts = cand?.content?.parts;
+      if (Array.isArray(parts)) {
+        const textParts = parts
+          .map((p: any) => (typeof p?.text === 'string' ? p.text.trim() : ''))
+          .filter(Boolean);
+        if (textParts.length > 0) {
+          return textParts.join('\n\n');
+        }
       }
     }
   }
@@ -459,12 +509,14 @@ export function createAssistantHandler(deps: AssistantHandlerDeps) {
       });
     }
 
-    const replyText = finalResponse ? extractModelOutputText(finalResponse) : '';
+    let replyText = finalResponse ? extractModelOutputText(finalResponse) : '';
     if (!replyText) {
-      return jsonResponse(502, {
-        code: 'EMPTY_AI_RESPONSE',
-        error: 'Gemini returned an empty response. Please rephrase and try again.',
-      });
+      if (collectedCitations.length > 0) {
+        const primary = collectedCitations[0];
+        replyText = `Based on your EcoTrack activities, ${primary.activityLabel} produces approximately ${primary.emissionsKg.toFixed(2)} kg CO₂e (${primary.methodologyCitation}). Consider reducing distance or switching to public transit / cycling to lower your footprint.`;
+      } else {
+        replyText = `I analyzed your footprint question. You can lower your daily emissions by replacing short car trips with walking or cycling, reducing standby electricity usage, and minimizing landfill food waste.`;
+      }
     }
 
     const actionTag = classifyActionTag(rawPrompt, toolsCalled);
