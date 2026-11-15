@@ -183,7 +183,19 @@ interface AssistantApiPayload {
   suggestedFollowUps?: string[];
   modelUsed?: string;
   messageId?: string;
+  createdAt?: string;
   quota?: AiQuotaStatus;
+  message?: {
+    id?: string;
+    sender?: 'assistant';
+    text?: string;
+    actionTag?: string;
+    estimatedSavingsKg?: number | null;
+    calculations?: unknown;
+    suggestedFollowUps?: string[];
+    modelUsed?: string;
+    createdAt?: string;
+  };
 }
 
 export async function sendAssistantPrompt(
@@ -236,7 +248,12 @@ export async function sendAssistantPrompt(
       },
     });
 
-    if (!payload.ok || !payload.reply) {
+    const replyText =
+      (typeof payload.reply === 'string' && payload.reply.trim()) ||
+      (typeof payload.message?.text === 'string' && payload.message.text.trim()) ||
+      '';
+
+    if (!replyText) {
       return {
         ok: false,
         code: payload.code ?? 'INVALID_AI_RESPONSE',
@@ -249,22 +266,27 @@ export async function sendAssistantPrompt(
     }
 
     const now = new Date();
+    const msgObj = payload.message ?? {};
     const message: ChatMessage = {
-      id: payload.messageId ?? `msg-ai-${now.getTime()}`,
+      id: payload.messageId ?? msgObj.id ?? `msg-ai-${now.getTime()}`,
       sender: 'assistant',
-      text: payload.reply,
+      text: replyText,
       timestamp: formatTimeLabel(now),
-      createdAt: now.toISOString(),
-      actionTag: payload.actionTag,
+      createdAt: msgObj.createdAt ?? payload.createdAt ?? now.toISOString(),
+      actionTag: payload.actionTag ?? msgObj.actionTag,
       estimatedSavingsKg:
         typeof payload.estimatedSavingsKg === 'number'
           ? payload.estimatedSavingsKg
+          : typeof msgObj.estimatedSavingsKg === 'number'
+          ? msgObj.estimatedSavingsKg
           : undefined,
-      calculations: parseCalculations(payload.calculations),
+      calculations: parseCalculations(payload.calculations ?? msgObj.calculations),
       suggestedFollowUps: Array.isArray(payload.suggestedFollowUps)
         ? payload.suggestedFollowUps
+        : Array.isArray(msgObj.suggestedFollowUps)
+        ? msgObj.suggestedFollowUps
         : undefined,
-      modelUsed: payload.modelUsed,
+      modelUsed: payload.modelUsed ?? msgObj.modelUsed,
     };
 
     return {

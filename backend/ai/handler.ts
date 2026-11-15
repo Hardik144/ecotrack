@@ -545,7 +545,16 @@ export function createAssistantHandler(deps: AssistantHandlerDeps) {
       }
     }
 
-    const payload: SustainabilityAssistantSuccessPayload = {
+    const payload = {
+      ok: true,
+      reply: replyText,
+      messageId: assistantMessageId,
+      actionTag,
+      estimatedSavingsKg: verifiedSavingsKg,
+      calculations: collectedCitations,
+      suggestedFollowUps,
+      modelUsed: modelName,
+      createdAt,
       message: {
         id: assistantMessageId,
         sender: 'assistant',
