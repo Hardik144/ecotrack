@@ -1,0 +1,5 @@
+{
+  "name": "ecotrack-backend",
+  "private": true,
+  "type": "module"
+}
